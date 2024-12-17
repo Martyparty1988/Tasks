@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Úkoly vil</title>
+</head>
+<body>
+  <h1>Úkoly vil</h1>
+  <div id="app"></div>
+
+  <script>
+    // Frontend aplikace
+    const VILLAS = ['OH YEAH VILA', 'AMAZING POOL', 'LITTLE CASTLE'];
+
+    const app = document.getElementById('app');
+    const renderTasks = (tasks) => {
+      app.innerHTML = `
+        <h2>Seznam úkolů</h2>
+        ${tasks.map(task => `
+          <div style="border: 1px solid #ccc; margin: 5px; padding: 5px;">
+            <h3>${task.nazev} (${task.vila})</h3>
+            <p>${task.popis}</p>
+            <p><strong>Termín:</strong> ${task.termin}</p>
+            <button onclick="completeTask('${task._id}')">${task.hotovo ? 'Označit jako nehotové' : 'Označit jako hotové'}</button>
+            <button onclick="deleteTask('${task._id}')">Smazat</button>
+          </div>
+        `).join('')}
+      `;
+    };
+
+    const fetchTasks = async () => {
+      const response = await fetch('/tasks');
+      const tasks = await response.json();
+      renderTasks(tasks);
+    };
+
+    const completeTask = async (id) => {
+      await fetch(`/tasks/${id}`, { method: 'PUT' });
+      fetchTasks();
+    };
+
+    const deleteTask = async (id) => {
+      await fetch(`/tasks/${id}`, { method: 'DELETE' });
+      fetchTasks();
+    };
+
+    fetchTasks();
+  </script>
+
+  <script type="module">
+    // Backend - Node.js uvnitř HTML
+    const http = require('http');
+    const url = require('url');
+    const { v4: uuid } = require('uuid');
+
+    let tasks = [
+      { _id: uuid(), nazev: 'Vymalovat obývák', popis: 'Pastelové barvy', vila: 'OH YEAH VILA', termin: '2024-02-15', hotovo: false },
+      { _id: uuid(), nazev: 'Opravit bazén', popis: 'Výměna filtru', vila: 'AMAZING POOL', termin: '2024-03-01', hotovo: false }
+    ];
+
+    const server = http.createServer((req, res) => {
+      const parsedUrl = url.parse(req.url, true);
+      res.setHeader('Content-Type', 'application/json');
+
+      if (req.method === 'GET' && parsedUrl.pathname === '/tasks') {
+        res.end(JSON.stringify(tasks));
+      } else if (req.method === 'PUT' && parsedUrl.pathname.startsWith('/tasks/')) {
+        const id = parsedUrl.pathname.split('/')[2];
+        tasks = tasks.map(task => task._id === id ? { ...task, hotovo: !task.hotovo } : task);
+        res.end(JSON.stringify({ message: 'Úkol aktualizován' }));
+      } else if (req.method === 'DELETE' && parsedUrl.pathname.startsWith('/tasks/')) {
+        const id = parsedUrl.pathname.split('/')[2];
+        tasks = tasks.filter(task => task._id !== id);
+        res.end(JSON.stringify({ message: 'Úkol smazán' }));
+      } else {
+        res.statusCode = 404;
+        res.end(JSON.stringify({ message: 'Endpoint nenalezen' }));
+      }
+    });
+
+    server.listen(5000, () => console.log('Server běží na http://localhost:5000'));
+  </script>
+</body>
+</html>
